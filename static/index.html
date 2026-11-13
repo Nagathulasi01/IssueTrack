@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IssueTrack – Smart Issue & Bug Tracking System</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6'><path d='M12 2a10 10 0 1010 10A10 10 0 0012 2zm1 14h-2v-2h2zm0-4h-2V7h2z'/></svg>">
+</head>
+<body>
+
+  <!-- Top App Navigation -->
+  <header class="app-header">
+    <div class="header-container">
+      <a href="/" class="brand">
+        <div class="brand-icon">⚡</div>
+        <div class="brand-title">
+          <span>IssueTrack</span>
+          <span class="brand-badge">DevGuard</span>
+        </div>
+      </a>
+
+      <div class="header-actions">
+        <div class="api-status" id="apiStatusContainer" title="API Status">
+          <div class="status-indicator" id="apiStatusDot"></div>
+          <span id="apiStatusText">Checking API...</span>
+        </div>
+        <a href="/docs" target="_blank" class="btn btn-secondary btn-sm" title="View Swagger OpenAPI Documentation">
+          📖 API Docs
+        </a>
+        <button id="openCreateModalBtn" class="btn btn-primary">
+          <span>+</span> New Issue
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="main-content">
+    
+    <!-- Page Header & Overview -->
+    <div class="page-intro">
+      <div class="page-title">
+        <h1>Engineering Issue Board</h1>
+        <p>Real-time issue monitoring, task assignment, and lifecycle resolution pipeline.</p>
+      </div>
+      <div>
+        <button id="refreshBtn" class="btn btn-secondary btn-sm" title="Reload issues from API">
+          🔄 Refresh Data
+        </button>
+      </div>
+    </div>
+
+    <!-- Summary Metrics Cards Grid -->
+    <section class="metrics-grid" aria-label="Issue Summary Metrics">
+      <div class="metric-card card-total active" data-filter-status="" id="cardTotal">
+        <div class="metric-header">
+          <span class="metric-label">Total Issues</span>
+          <span class="metric-icon">📋</span>
+        </div>
+        <div class="metric-value" id="statTotal">-</div>
+        <div class="metric-footer">All logged tickets</div>
+      </div>
+
+      <div class="metric-card card-open" data-filter-status="Open" id="cardOpen">
+        <div class="metric-header">
+          <span class="metric-label">Open</span>
+          <span class="metric-icon">🟡</span>
+        </div>
+        <div class="metric-value" id="statOpen">-</div>
+        <div class="metric-footer">Awaiting investigation</div>
+      </div>
+
+      <div class="metric-card card-progress" data-filter-status="In Progress" id="cardProgress">
+        <div class="metric-header">
+          <span class="metric-label">In Progress</span>
+          <span class="metric-icon">🔵</span>
+        </div>
+        <div class="metric-value" id="statProgress">-</div>
+        <div class="metric-footer">Currently being fixed</div>
+      </div>
+
+      <div class="metric-card card-resolved" data-filter-status="Resolved" id="cardResolved">
+        <div class="metric-header">
+          <span class="metric-label">Resolved</span>
+          <span class="metric-icon">🟢</span>
+        </div>
+        <div class="metric-value" id="statResolved">-</div>
+        <div class="metric-footer">Tested and closed</div>
+      </div>
+    </section>
+
+    <!-- Search & Filter Controls -->
+    <section class="controls-bar" aria-label="Filters and Search">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input 
+          type="text" 
+          id="searchInput" 
+          class="search-input" 
+          placeholder="Search issues by title..." 
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="filters-group">
+        <select id="statusFilter" class="filter-select" aria-label="Filter by Status">
+          <option value="">All Statuses</option>
+          <option value="Open">Open</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Resolved">Resolved</option>
+        </select>
+
+        <select id="priorityFilter" class="filter-select" aria-label="Filter by Priority">
+          <option value="">All Priorities</option>
+          <option value="High">High Priority</option>
+          <option value="Medium">Medium Priority</option>
+          <option value="Low">Low Priority</option>
+        </select>
+
+        <button id="resetFiltersBtn" class="btn btn-secondary btn-sm" title="Clear all active filters">
+          Reset Filters
+        </button>
+      </div>
+    </section>
+
+    <!-- Issues Table & Card Container -->
+    <section class="issues-container">
+      <div class="issues-meta-bar">
+        <div>
+          <span id="issuesCountLabel">Showing 0 issues</span>
+          <span id="activeFilterBadge" style="margin-left: 0.5rem;"></span>
+        </div>
+        <div class="date-text">
+          SQLite WAL Active
+        </div>
+      </div>
+
+      <!-- Loading Overlay -->
+      <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+      </div>
+
+      <!-- Table View -->
+      <div class="table-responsive">
+        <table class="issues-table">
+          <thead>
+            <tr>
+              <th style="width: 70px;">ID</th>
+              <th>Issue Title & Details</th>
+              <th style="width: 120px;">Priority</th>
+              <th style="width: 140px;">Status</th>
+              <th style="width: 180px;">Assignee</th>
+              <th style="width: 150px;">Created</th>
+              <th style="width: 150px; text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="issuesTableBody">
+            <!-- Dynamically populated via app.js -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty State View -->
+      <div id="emptyState" class="state-container" style="display: none;">
+        <div class="state-icon">📭</div>
+        <div class="state-title">No issues found</div>
+        <div class="state-desc" id="emptyStateDesc">
+          There are no issues matching the current search query or status filter.
+        </div>
+        <button id="emptyStateActionBtn" class="btn btn-primary btn-sm">
+          Create New Issue
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Create Issue Modal -->
+  <div id="createModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="createModalTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 id="createModalTitle" class="modal-title">Create New Issue</h2>
+        <button class="btn-close" data-close-modal="createModal" aria-label="Close modal">&times;</button>
+      </div>
+      <form id="createIssueForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="createTitle" class="form-label">
+              Issue Title <span class="required">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="createTitle" 
+              class="form-control" 
+              placeholder="e.g. Payment webhook timeout on checkout" 
+              required 
+              minlength="3" 
+              maxlength="120"
+            />
+            <div class="form-error" id="createTitleError">Title must be between 3 and 120 characters.</div>
+          </div>
+
+          <div class="form-group">
+            <label for="createDescription" class="form-label">Description</label>
+            <textarea 
+              id="createDescription" 
+              class="form-control" 
+              placeholder="Provide steps to reproduce, expected behavior, or logs..."
+              rows="3"
+              maxlength="2000"
+            ></textarea>
+            <div class="form-help">Optional detailed notes (max 2000 characters).</div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="createPriority" class="form-label">Priority</label>
+              <select id="createPriority" class="form-control">
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="createStatus" class="form-label">Initial Status</label>
+              <select id="createStatus" class="form-control">
+                <option value="Open" selected>Open</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Resolved">Resolved</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="createAssignedTo" class="form-label">Assigned Developer</label>
+            <input 
+              type="text" 
+              id="createAssignedTo" 
+              class="form-control" 
+              placeholder="e.g. Priya Sharma (default: Unassigned)"
+              maxlength="60"
+            />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close-modal="createModal">Cancel</button>
+          <button type="submit" id="createSubmitBtn" class="btn btn-primary">Create Issue</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Issue Modal -->
+  <div id="editModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 id="editModalTitle" class="modal-title">Edit Issue</h2>
+        <button class="btn-close" data-close-modal="editModal" aria-label="Close modal">&times;</button>
+      </div>
+      <form id="editIssueForm">
+        <input type="hidden" id="editIssueId" />
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="editTitle" class="form-label">
+              Issue Title <span class="required">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="editTitle" 
+              class="form-control" 
+              required 
+              minlength="3" 
+              maxlength="120"
+            />
+            <div class="form-error" id="editTitleError">Title must be between 3 and 120 characters.</div>
+          </div>
+
+          <div class="form-group">
+            <label for="editDescription" class="form-label">Description</label>
+            <textarea 
+              id="editDescription" 
+              class="form-control" 
+              rows="3"
+              maxlength="2000"
+            ></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editPriority" class="form-label">Priority</label>
+              <select id="editPriority" class="form-control">
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="editStatus" class="form-label">Status</label>
+              <select id="editStatus" class="form-control">
+                <option value="Open">Open</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Resolved">Resolved</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="editAssignedTo" class="form-label">Assigned Developer</label>
+            <input 
+              type="text" 
+              id="editAssignedTo" 
+              class="form-control" 
+              maxlength="60"
+            />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close-modal="editModal">Cancel</button>
+          <button type="submit" id="editSubmitBtn" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="deleteModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+    <div class="modal-dialog" style="max-width: 440px;">
+      <div class="modal-header">
+        <h2 id="deleteModalTitle" class="modal-title">Delete Issue</h2>
+        <button class="btn-close" data-close-modal="deleteModal" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 0.75rem;">Are you sure you want to permanently delete this issue?</p>
+        <div style="background-color: var(--bg-app); padding: 0.75rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.88rem;">
+          <strong id="deleteIssueIdText">#0</strong>: <span id="deleteIssueTitleText"></span>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--danger-text); margin-top: 0.75rem;">
+          ⚠️ This action removes the record from SQLite and cannot be reversed.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close-modal="deleteModal">Cancel</button>
+        <button type="button" id="confirmDeleteBtn" class="btn btn-danger">Yes, Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- Application Footer -->
+  <footer class="app-footer">
+    <div class="footer-container">
+      <div>
+        <strong>IssueTrack</strong> – Built with FastAPI, SQLite & Vanilla JavaScript.
+      </div>
+      <div class="footer-links">
+        <a href="/docs" target="_blank">Swagger API</a>
+        <a href="/redoc" target="_blank">ReDoc</a>
+        <a href="/health" target="_blank">Health Status</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Application Logic -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
+
